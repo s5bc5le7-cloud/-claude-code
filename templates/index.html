@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>せどりツール</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>せどりツール</h1>
+    <p>Amazon商品検索・利益計算</p>
+  </header>
+
+  <main>
+    <!-- 商品検索 -->
+    <section class="card">
+      <h2>商品検索</h2>
+      <div class="search-row">
+        <input type="text" id="keyword" placeholder="キーワードを入力（例：ゲーム、家電）" />
+        <button onclick="searchProducts()">検索</button>
+      </div>
+      <div id="demo-notice" class="notice hidden">
+        ⚠️ APIキー未設定のためデモデータを表示しています
+      </div>
+      <div id="search-results"></div>
+    </section>
+
+    <!-- 利益計算 -->
+    <section class="card">
+      <h2>利益計算</h2>
+      <div class="profit-grid">
+        <label>
+          仕入れ値（円）
+          <input type="number" id="buy-price" placeholder="例: 1000" min="1" />
+        </label>
+        <label>
+          売値（円）
+          <input type="number" id="sell-price" placeholder="例: 3000" min="1" />
+        </label>
+      </div>
+      <button onclick="calcProfit()">利益を計算</button>
+      <div id="profit-result"></div>
+    </section>
+  </main>
+
+  <script>
+    async function searchProducts() {
+      const keyword = document.getElementById("keyword").value.trim();
+      if (!keyword) { alert("キーワードを入力してください"); return; }
+
+      const container = document.getElementById("search-results");
+      container.innerHTML = '<p class="loading">検索中...</p>';
+      document.getElementById("demo-notice").classList.add("hidden");
+
+      try {
+        const res = await fetch(`/search?keyword=${encodeURIComponent(keyword)}`);
+        const data = await res.json();
+
+        if (data.error) { container.innerHTML = `<p class="error">${data.error}</p>`; return; }
+        if (data.demo) document.getElementById("demo-notice").classList.remove("hidden");
+
+        if (!data.items || data.items.length === 0) {
+          container.innerHTML = '<p class="empty">商品が見つかりませんでした</p>';
+          return;
+        }
+
+        container.innerHTML = data.items.map(item => `
+          <div class="item-card">
+            ${item.image_url
+              ? `<img src="${item.image_url}" alt="${item.title}" />`
+              : '<div class="no-image">画像なし</div>'}
+            <div class="item-info">
+              <p class="item-title">
+                <a href="${item.detail_url}" target="_blank" rel="noopener">${item.title}</a>
+              </p>
+              <p class="item-price">
+                ${item.price > 0 ? `¥${item.price.toLocaleString()}` : '価格情報なし'}
+              </p>
+              ${item.price > 0 ? `
+                <button class="set-sell-btn"
+                  onclick="setSellPrice(${item.price})">
+                  この価格で利益計算
+                </button>` : ''}
+            </div>
+          </div>
+        `).join("");
+      } catch (e) {
+        container.innerHTML = `<p class="error">通信エラー: ${e.message}</p>`;
+      }
+    }
+
+    function setSellPrice(price) {
+      document.getElementById("sell-price").value = price;
+      document.querySelector(".card:last-of-type").scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function calcProfit() {
+      const buy = document.getElementById("buy-price").value;
+      const sell = document.getElementById("sell-price").value;
+      const container = document.getElementById("profit-result");
+
+      if (!buy || !sell) { alert("仕入れ値と売値を入力してください"); return; }
+
+      try {
+        const res = await fetch(`/profit?buy=${buy}&sell=${sell}`);
+        const d = await res.json();
+
+        if (d.error) { container.innerHTML = `<p class="error">${d.error}</p>`; return; }
+
+        const profitClass = d.profit >= 0 ? "profit-positive" : "profit-negative";
+        container.innerHTML = `
+          <table class="profit-table">
+            <tr><td>売値</td><td>¥${d.sell_price.toLocaleString()}</td></tr>
+            <tr><td>仕入れ値</td><td>¥${d.buy_price.toLocaleString()}</td></tr>
+            <tr class="fee-row"><td>紹介料（10%）</td><td>-¥${d.referral_fee.toLocaleString()}</td></tr>
+            <tr class="fee-row"><td>Amazon手数料（8%）</td><td>-¥${d.commission.toLocaleString()}</td></tr>
+            <tr class="fee-row"><td>FBA発送手数料</td><td>-¥${d.fba_fixed.toLocaleString()}</td></tr>
+            <tr class="fee-row"><td>合計手数料</td><td>-¥${d.total_fees.toLocaleString()}</td></tr>
+            <tr class="result-row ${profitClass}">
+              <td><strong>利益</strong></td>
+              <td><strong>${d.profit >= 0 ? '+' : ''}¥${d.profit.toLocaleString()}</strong></td>
+            </tr>
+            <tr class="result-row ${profitClass}">
+              <td><strong>ROI</strong></td>
+              <td><strong>${d.roi}%</strong></td>
+            </tr>
+          </table>
+        `;
+      } catch (e) {
+        container.innerHTML = `<p class="error">通信エラー: ${e.message}</p>`;
+      }
+    }
+
+    document.getElementById("keyword").addEventListener("keydown", e => {
+      if (e.key === "Enter") searchProducts();
+    });
+  </script>
+</body>
+</html>
