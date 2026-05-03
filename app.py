@@ -11,6 +11,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
+YAHOO_APP_ID = os.getenv("YAHOO_APP_ID", "")
 AMAZON_ACCESS_KEY = os.getenv("AMAZON_ACCESS_KEY", "")
 AMAZON_SECRET_KEY = os.getenv("AMAZON_SECRET_KEY", "")
 AMAZON_PARTNER_TAG = os.getenv("AMAZON_PARTNER_TAG", "")
@@ -92,6 +93,35 @@ def call_paapi(payload: dict) -> dict:
     return response.json()
 
 
+def search_yahoo(keyword: str, results: int = 10) -> list:
+    """Yahoo! Japan ショッピング商品検索API v3"""
+    url = "https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch"
+    params = {
+        "appid": YAHOO_APP_ID,
+        "query": keyword,
+        "results": results,
+        "sort": "-score",
+        "output": "json",
+    }
+    response = requests.get(url, params=params, timeout=10)
+    response.raise_for_status()
+    data = response.json()
+
+    items = []
+    for hit in data.get("hits", []):
+        image = hit.get("image", {})
+        price = hit.get("price", 0)
+        items.append({
+            "asin": hit.get("code", ""),
+            "title": hit.get("name", "不明"),
+            "price": int(price) if price else 0,
+            "image_url": image.get("medium", image.get("small", "")),
+            "detail_url": hit.get("url", "#"),
+            "source": "yahoo",
+        })
+    return items
+
+
 def calculate_profit(buy_price: int, sell_price: int) -> dict:
     """Calculate profit after Amazon fees."""
     referral_fee = int(sell_price * FBA_RATE)
@@ -150,57 +180,54 @@ def index():
 @app.route("/search")
 def search():
     keyword = request.args.get("keyword", "").strip()
+    source = request.args.get("source", "auto")  # auto | yahoo | amazon
     if not keyword:
         return jsonify({"error": "キーワードを入力してください"}), 400
 
-    if not all([AMAZON_ACCESS_KEY, AMAZON_SECRET_KEY, AMAZON_PARTNER_TAG]):
-        # Return demo data when API keys are not configured
-        demo_items = [
-            {
-                "asin": "B0DEMO001",
-                "title": f"【デモ】{keyword} - サンプル商品 A",
-                "price": 3200,
-                "image_url": "",
-                "detail_url": "#",
-            },
-            {
-                "asin": "B0DEMO002",
-                "title": f"【デモ】{keyword} - サンプル商品 B",
-                "price": 5800,
-                "image_url": "",
-                "detail_url": "#",
-            },
-            {
-                "asin": "B0DEMO003",
-                "title": f"【デモ】{keyword} - サンプル商品 C",
-                "price": 1500,
-                "image_url": "",
-                "detail_url": "#",
-            },
-        ]
-        return jsonify({"items": demo_items, "demo": True})
+    # Yahoo! Japan
+    use_yahoo = YAHOO_APP_ID and source in ("auto", "yahoo")
+    # Amazon
+    use_amazon = all([AMAZON_ACCESS_KEY, AMAZON_SECRET_KEY, AMAZON_PARTNER_TAG]) and source in ("auto", "amazon")
 
-    try:
-        payload = {
-            "Keywords": keyword,
-            "Resources": [
-                "Images.Primary.Large",
-                "Images.Primary.Medium",
-                "ItemInfo.Title",
-                "Offers.Listings.Price",
-            ],
-            "PartnerTag": AMAZON_PARTNER_TAG,
-            "PartnerType": "Associates",
-            "Marketplace": "www.amazon.co.jp",
-            "ItemCount": 10,
-        }
-        api_response = call_paapi(payload)
-        items = parse_items(api_response)
-        return jsonify({"items": items})
-    except requests.HTTPError as e:
-        return jsonify({"error": f"Amazon APIエラー: {e.response.status_code}"}), 500
-    except Exception as e:
-        return jsonify({"error": f"エラーが発生しました: {str(e)}"}), 500
+    if use_yahoo and (source == "yahoo" or not use_amazon):
+        try:
+            items = search_yahoo(keyword)
+            return jsonify({"items": items, "source": "yahoo"})
+        except requests.HTTPError as e:
+            return jsonify({"error": f"Yahoo! APIエラー: {e.response.status_code}"}), 500
+        except Exception as e:
+            return jsonify({"error": f"エラーが発生しました: {str(e)}"}), 500
+
+    if use_amazon:
+        try:
+            payload = {
+                "Keywords": keyword,
+                "Resources": [
+                    "Images.Primary.Large",
+                    "Images.Primary.Medium",
+                    "ItemInfo.Title",
+                    "Offers.Listings.Price",
+                ],
+                "PartnerTag": AMAZON_PARTNER_TAG,
+                "PartnerType": "Associates",
+                "Marketplace": "www.amazon.co.jp",
+                "ItemCount": 10,
+            }
+            api_response = call_paapi(payload)
+            items = parse_items(api_response)
+            return jsonify({"items": items, "source": "amazon"})
+        except requests.HTTPError as e:
+            return jsonify({"error": f"Amazon APIエラー: {e.response.status_code}"}), 500
+        except Exception as e:
+            return jsonify({"error": f"エラーが発生しました: {str(e)}"}), 500
+
+    # デモデータ（APIキー未設定時）
+    demo_items = [
+        {"asin": "B0DEMO001", "title": f"【デモ】{keyword} - サンプル商品 A", "price": 3200, "image_url": "", "detail_url": "#"},
+        {"asin": "B0DEMO002", "title": f"【デモ】{keyword} - サンプル商品 B", "price": 5800, "image_url": "", "detail_url": "#"},
+        {"asin": "B0DEMO003", "title": f"【デモ】{keyword} - サンプル商品 C", "price": 1500, "image_url": "", "detail_url": "#"},
+    ]
+    return jsonify({"items": demo_items, "demo": True, "source": "demo"})
 
 
 @app.route("/profit")

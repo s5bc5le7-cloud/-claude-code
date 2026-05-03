@@ -36,6 +36,15 @@ main {
   display: flex;
   gap: 10px;
 }
+select {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  background: #fff;
+  cursor: pointer;
+}
+
 input[type="text"], input[type="number"] {
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -59,6 +68,17 @@ button {
   transition: background 0.2s;
 }
 button:hover { background: #e68a00; }
+
+.source-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  margin-top: 10px;
+}
+.badge-yahoo { background: #ff0033; color: #fff; }
+.badge-amazon { background: #ff9900; color: #fff; }
 
 .notice {
   background: #fff8e1;

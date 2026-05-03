@@ -18,11 +18,17 @@
       <h2>商品検索</h2>
       <div class="search-row">
         <input type="text" id="keyword" placeholder="キーワードを入力（例：ゲーム、家電）" />
+        <select id="source">
+          <option value="auto">自動選択</option>
+          <option value="yahoo">Yahoo! ショッピング</option>
+          <option value="amazon">Amazon</option>
+        </select>
         <button onclick="searchProducts()">検索</button>
       </div>
       <div id="demo-notice" class="notice hidden">
         ⚠️ APIキー未設定のためデモデータを表示しています
       </div>
+      <div id="source-badge"></div>
       <div id="search-results"></div>
     </section>
 
@@ -47,18 +53,26 @@
   <script>
     async function searchProducts() {
       const keyword = document.getElementById("keyword").value.trim();
+      const source = document.getElementById("source").value;
       if (!keyword) { alert("キーワードを入力してください"); return; }
 
       const container = document.getElementById("search-results");
       container.innerHTML = '<p class="loading">検索中...</p>';
       document.getElementById("demo-notice").classList.add("hidden");
+      document.getElementById("source-badge").innerHTML = "";
 
       try {
-        const res = await fetch(`/search?keyword=${encodeURIComponent(keyword)}`);
+        const res = await fetch(`/search?keyword=${encodeURIComponent(keyword)}&source=${source}`);
         const data = await res.json();
 
         if (data.error) { container.innerHTML = `<p class="error">${data.error}</p>`; return; }
         if (data.demo) document.getElementById("demo-notice").classList.remove("hidden");
+
+        const sourceLabels = { yahoo: "Yahoo! ショッピング", amazon: "Amazon", demo: "デモ" };
+        if (data.source && data.source !== "demo") {
+          document.getElementById("source-badge").innerHTML =
+            `<span class="source-badge badge-${data.source}">${sourceLabels[data.source] || data.source}</span>`;
+        }
 
         if (!data.items || data.items.length === 0) {
           container.innerHTML = '<p class="empty">商品が見つかりませんでした</p>';
