@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>リマインダー</title>
+
+<!-- PWA / ホーム画面追加対応 -->
+<meta name="theme-color" content="#FF9500">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="リマインダー">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ヘッダー -->
+  <header class="header">
+    <div class="header-top">
+      <h1>リマインダー</h1>
+      <button id="clearDoneBtn" class="text-btn" title="完了済みを削除">完了済みを削除</button>
+    </div>
+    <div class="date-label" id="todayLabel"></div>
+  </header>
+
+  <!-- フィルタタブ -->
+  <nav class="segmented" role="tablist">
+    <button class="seg-btn active" data-filter="active" role="tab" aria-selected="true">未完了</button>
+    <button class="seg-btn" data-filter="all" role="tab" aria-selected="false">すべて</button>
+    <button class="seg-btn" data-filter="done" role="tab" aria-selected="false">完了済み</button>
+  </nav>
+
+  <!-- タスクリスト -->
+  <main class="list-wrap">
+    <ul id="taskList" class="task-list"></ul>
+    <p id="emptyState" class="empty-state" hidden>タスクはありません</p>
+  </main>
+
+</div>
+
+<!-- 入力バー（下部固定・ワンタップ入力） -->
+<form id="addForm" class="add-bar" autocomplete="off">
+  <button type="button" id="dueToggleBtn" class="icon-btn" title="期限を設定" aria-label="期限を設定">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1Zm12 8H5v9h14v-9ZM8 13h3v3H8v-3Z"/></svg>
+  </button>
+
+  <input id="taskInput" type="text" placeholder="新規リマインダー" maxlength="200" required>
+
+  <div id="dueRow" class="due-row" hidden>
+    <input id="dueDate" type="date">
+    <input id="dueTime" type="time">
+    <button type="button" id="dueClearBtn" class="text-btn small">クリア</button>
+  </div>
+
+  <button type="submit" class="add-btn" aria-label="追加">
+    <svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 5v4h4v2h-4v4h-2v-4H7v-2h4V7h2Z"/></svg>
+  </button>
+</form>
+
+<script src="app.js"></script>
+</body>
+</html>
